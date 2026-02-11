@@ -10,7 +10,7 @@ const Page = async ({ searchParams }: PageProps) => {
   void trpc.categories.getMany.prefetch();
   return (
     <HydrateClient>
-      <HomeView categoryId={categoryId} />
+      <HomeView categoryId={categoryId ?? ""} />
     </HydrateClient>
   );
 };
