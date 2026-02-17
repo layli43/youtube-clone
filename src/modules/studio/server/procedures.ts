@@ -3,9 +3,29 @@ import { videos } from "@/db/schema";
 import { createTRPCRouter, protectedProcedure } from "@/trpc/init";
 import { z } from "zod";
 import { eq, and, or, lt, desc } from "drizzle-orm";
+import { TRPCError } from "@trpc/server";
 
 // Infinite studio video fetching logic
 export const studioRouter = createTRPCRouter({
+  // Zod ensures type secruity at runtime
+  // If the client sends invalid data
+  //  tRPC will automatically reject the request
+  getOne: protectedProcedure
+    .input(z.object({ id: z.string().uuid() }))
+    .query(async ({ ctx, input }) => {
+      const { id: userId } = ctx.user;
+      const { id } = input;
+
+      const [video] = await db
+        .select()
+        .from(videos)
+        .where(and(eq(videos.id, id), eq(videos.userId, userId)));
+      if (!video) {
+        throw new TRPCError({ code: "NOT_FOUND" });
+      }
+      return video;
+    }),
+
   getMany: protectedProcedure
     .input(
       z.object({
