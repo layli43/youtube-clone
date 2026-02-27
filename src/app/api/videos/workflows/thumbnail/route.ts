@@ -26,7 +26,7 @@ export const { POST } = serve(async (context) => {
       .from(videos)
       .where(and(eq(videos.id, videoId), eq(videos.userId, userId)));
 
-    if (!existingVideo) {
+    if (!existingVideo[0]) {
       throw new Error("Not found");
     }
 
@@ -42,6 +42,12 @@ export const { POST } = serve(async (context) => {
       const response = await ai.models.generateContent({
         model: "gemini-2.5-flash-image",
         contents: [{ text: prompt }, { text: THUMBNAIL_GENERATION_PROPMT }],
+        config: {
+          imageConfig: {
+            aspectRatio: "16:9",
+            resolution: "2k",
+          },
+        },
       });
 
       if (response.candidates == undefined) {
@@ -82,14 +88,7 @@ export const { POST } = serve(async (context) => {
     },
   );
 
-  // 3. Clear previous thumbnail on uploadthing
-  await context.run("cleanup-thumbnail", async () => {
-    if (video.thumbnailKey) {
-      await utapi.deleteFiles(video.thumbnailKey);
-    }
-  });
-
-  //4. Update the database
+  // 3. Update the database
   await context.run("update-video", async () => {
     await db
       .update(videos)
@@ -98,6 +97,23 @@ export const { POST } = serve(async (context) => {
         thumbnailUrl: thumbnailUrl || video.thumbnailUrl,
       })
       .where(and(eq(videos.userId, video.userId), eq(videos.id, video.id)));
+  });
+
+  // 4. Best-effort cleanup of previous thumbnail on uploadthing
+  await context.run("cleanup-thumbnail", async () => {
+    if (!video.thumbnailKey || video.thumbnailKey === thumbnailKey) {
+      return;
+    }
+
+    try {
+      await utapi.deleteFiles(video.thumbnailKey);
+    } catch (error) {
+      console.error("Failed to delete previous thumbnail", {
+        videoId: video.id,
+        thumbnailKey: video.thumbnailKey,
+        error,
+      });
+    }
   });
 
   await context.run("second-step", () => {
