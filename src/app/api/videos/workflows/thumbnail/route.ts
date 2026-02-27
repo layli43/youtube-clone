@@ -45,7 +45,6 @@ export const { POST } = serve(async (context) => {
         config: {
           imageConfig: {
             aspectRatio: "16:9",
-            resolution: "2k",
           },
         },
       });

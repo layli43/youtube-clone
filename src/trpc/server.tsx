@@ -6,6 +6,9 @@ import { makeQueryClient } from "./query-client";
 import { appRouter } from "./routers/_app";
 // IMPORTANT: Create a stable getter for the query client that
 //            will return the same client during the same request.
+
+// To prefetch queries from server components, we use a tRPC caller.
+// The @trpc/react-query/rsc module exports a thin wrapper around createCaller that integrates with your React Query client.
 export const getQueryClient = cache(makeQueryClient);
 const caller = createCallerFactory(appRouter)(createTRPCContext);
 export const { trpc, HydrateClient } = createHydrationHelpers<typeof appRouter>(
