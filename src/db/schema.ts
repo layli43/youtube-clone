@@ -93,6 +93,7 @@ export const videoRelations = relations(videos, ({ one, many }) => ({
     references: [categories.id],
   }),
   views: many(videoViews),
+  reatcions: many(videoReactions),
 }));
 
 export const videoViews = pgTable(
