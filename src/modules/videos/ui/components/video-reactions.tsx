@@ -3,6 +3,9 @@ import { Separator } from "@/components/ui/separator";
 import { cn } from "@/lib/utils";
 import { ThumbsDownIcon, ThumbsUpIcon } from "lucide-react";
 import { VideoGetOneOutput } from "../../types";
+import { trpc } from "@/trpc/client";
+import { toast } from "sonner";
+import { useClerk } from "@clerk/nextjs";
 
 interface VideoReactionsProps {
   videoId: string;
@@ -17,10 +20,42 @@ export const VideoReactions = ({
   dislikes,
   viewerReaction,
 }: VideoReactionsProps) => {
+  const clerk = useClerk();
+  const utils = trpc.useUtils();
+
+  const like = trpc.videoReactions.like.useMutation({
+    onSuccess: () => {
+      utils.videos.getOne.invalidate({ id: videoId });
+    },
+    onError: (error) => {
+      toast.error("Something went wrong");
+      if (error.data?.code === "UNAUTHORIZED") {
+        toast.error("Please login first");
+        clerk.openSignIn();
+      }
+    },
+  });
+
+  const dislike = trpc.videoReactions.dislike.useMutation({
+    onSuccess: () => {
+      // Tell react that the cached data has staled, refetch them.
+      utils.videos.getOne.invalidate({ id: videoId });
+    },
+    onError: (error) => {
+      toast.error("Something went wrong");
+      if (error.data?.code === "UNAUTHORIZED") {
+        toast.error("Please login first");
+        clerk.openSignIn();
+      }
+    },
+  });
+
   return (
     <div className="flex items-center flex-none">
       <Button
+        onClick={() => like.mutate({ videoId })}
         variant="secondary"
+        disabled={like.isPending || dislike.isPending}
         className="rounded-l-full rounded-r-none gap-2 pr-4"
       >
         <ThumbsUpIcon
@@ -30,11 +65,13 @@ export const VideoReactions = ({
       </Button>
       <Separator orientation="vertical" className="h-7" />
       <Button
+        onClick={() => dislike.mutate({ videoId })}
         variant="secondary"
+        disabled={like.isPending || dislike.isPending}
         className="rounded-l-none rounded-r-full gap-2 pl-3"
       >
         <ThumbsDownIcon
-          className={cn("size-5", viewerReaction !== "dislike" && "fill-black")}
+          className={cn("size-5", viewerReaction === "dislike" && "fill-black")}
         />
         {dislikes}
       </Button>
