@@ -4,7 +4,7 @@ import { studioRouter } from "@/modules/studio/server/procedures";
 import { videosRouter } from "@/modules/videos/server/procedures";
 import { videoViewsRouter } from "@/modules/video-views/server/procedures";
 import { videoReactionsRouter } from "@/modules/video-reactions/server/procedures";
-import { subscriptionsRouter } from "@/modules/subscriptions/ui/components/server/procedures";
+import { subscriptionsRouter } from "@/modules/subscriptions/server/procedures";
 // tRPC router
 export const appRouter = createTRPCRouter({
   studio: studioRouter,

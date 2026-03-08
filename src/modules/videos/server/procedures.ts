@@ -27,6 +27,7 @@ export const videosRouter = createTRPCRouter({
 
       let userId;
 
+      // The user who has login
       const [user] = await db
         .select()
         .from(users)
@@ -61,8 +62,8 @@ export const videosRouter = createTRPCRouter({
           user: {
             ...getTableColumns(users),
             subscriberCounts: db.$count(
-              viewerSubscriptions,
-              eq(viewerSubscriptions.creatorId, user.id),
+              subscriptions,
+              eq(subscriptions.creatorId, users.id),
             ),
             isSubscribed: isNotNull(viewerSubscriptions.viewerId).mapWith(
               Boolean,
@@ -91,7 +92,7 @@ export const videosRouter = createTRPCRouter({
         .leftJoin(viewerReactions, eq(viewerReactions.videoId, videos.id))
         .leftJoin(
           viewerSubscriptions,
-          eq(viewerSubscriptions.creatorId, user.id),
+          eq(viewerSubscriptions.creatorId, users.id),
         )
         .where(eq(videos.id, input.id));
       // .groupBy(videos.id, users.id, viewerReactions.type);
