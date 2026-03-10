@@ -28,6 +28,24 @@ export const commentsRouter = createTRPCRouter({
 
       return createdComment;
     }),
+  remove: protectedProcedure
+    .input(
+      z.object({
+        id: z.string().uuid(),
+      }),
+    )
+    .mutation(async ({ input, ctx }) => {
+      const { id } = input;
+      const { id: userId } = ctx.user;
+
+      const deletedComment = await db
+        .delete(comments)
+        .where(and(eq(comments.id, id), eq(comments.userId, userId)))
+        .returning();
+
+      return deletedComment;
+    }),
+
   getMany: baseProcedure
     .input(
       z.object({
