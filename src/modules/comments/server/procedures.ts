@@ -5,7 +5,7 @@ import {
   createTRPCRouter,
   protectedProcedure,
 } from "@/trpc/init";
-import { eq, getTableColumns, lt, or, and } from "drizzle-orm";
+import { eq, getTableColumns, lt, or, and, count, desc } from "drizzle-orm";
 import { z } from "zod";
 
 export const commentsRouter = createTRPCRouter({
@@ -45,29 +45,40 @@ export const commentsRouter = createTRPCRouter({
       const { videoId } = input;
       const { cursor, limit } = input;
 
-      const commentsList = await db
-        .select({
-          ...getTableColumns(comments),
-          user: users,
-        })
-        .from(comments)
-        .where(
-          and(
-            eq(comments.videoId, videoId),
-            cursor
-              ? or(
-                  lt(comments.updatedAt, cursor.updatedAt),
-                  and(
-                    eq(comments.updatedAt, cursor.updatedAt),
-                    lt(comments.id, cursor.id),
-                  ),
-                )
-              : undefined,
-          ),
-        )
-        .innerJoin(users, eq(comments.userId, users.id))
-        .orderBy(comments.updatedAt, comments.id)
-        .limit(limit + 1);
+      // Get total comments counts
+      const [totalData, commentsList] = await Promise.all([
+        await db
+          .select({
+            count: count(),
+          })
+          .from(comments)
+          .where(eq(comments.videoId, videoId)),
+
+        await db
+          .select({
+            ...getTableColumns(comments),
+            user: users,
+          })
+          .from(comments)
+          .where(
+            and(
+              eq(comments.videoId, videoId),
+              cursor
+                ? or(
+                    lt(comments.updatedAt, cursor.updatedAt),
+                    and(
+                      eq(comments.updatedAt, cursor.updatedAt),
+                      lt(comments.id, cursor.id),
+                    ),
+                  )
+                : undefined,
+            ),
+          )
+          .innerJoin(users, eq(comments.userId, users.id))
+          // Keep ordering consistent with lt-based cursor pagination to avoid duplicates.
+          .orderBy(desc(comments.updatedAt), desc(comments.id))
+          .limit(limit + 1),
+      ]);
 
       const hasMore = commentsList.length > limit;
       const items = hasMore ? commentsList.slice(0, -1) : commentsList;
@@ -81,6 +92,7 @@ export const commentsRouter = createTRPCRouter({
         : null;
 
       return {
+        totalCounts: totalData[0].count,
         items,
         nextCursor,
       };
