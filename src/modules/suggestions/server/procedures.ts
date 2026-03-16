@@ -58,8 +58,8 @@ export const suggestionsRouter = createTRPCRouter({
               eq(videoReactions.type, "dislike"),
             ),
           ),
-          //Users info
-          users,
+          //User info
+          user: users,
         })
         .from(videos)
         .innerJoin(users, eq(videos.userId, users.id))

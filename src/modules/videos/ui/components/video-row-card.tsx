@@ -47,10 +47,26 @@ interface VideoRowCardProps extends VariantProps<typeof videoRowCardVariants> {
 }
 
 export const VideoRowCardSkeleton = () => {
-  return <div>Skeleton</div>;
+  return (
+    <div>
+      <Skeleton />
+    </div>
+  );
 };
 
 export const VideoRowCard = ({ data, size, onRemove }: VideoRowCardProps) => {
+  const compactViews = useMemo(() => {
+    return Intl.NumberFormat("en", {
+      notation: "compact",
+    }).format(data.viewCounts);
+  }, [data.likeCounts]);
+
+  const compactLikes = useMemo(() => {
+    return Intl.NumberFormat("en", {
+      notation: "compact",
+    }).format(data.likeCounts);
+  }, [data.likeCounts]);
+
   return (
     <div className={videoRowCardVariants({ size })}>
       <Link href={`/videos/${data.id}`} className={thumbnailVariants({ size })}>
@@ -76,7 +92,7 @@ export const VideoRowCard = ({ data, size, onRemove }: VideoRowCardProps) => {
             </h3>
             {size === "default" && (
               <p className="text-xs text-muted-foreground mt-1">
-                {data.viewCount} views • {data.likeCount} likes
+                {compactViews} views • {compactLikes} likes
               </p>
             )}
             {size === "default" && (
@@ -105,7 +121,16 @@ export const VideoRowCard = ({ data, size, onRemove }: VideoRowCardProps) => {
                 </Tooltip>
               </>
             )}
+            {size === "compact" && <UserInfo size="sm" name={data.user.name} />}
+            {size === "compact" && (
+              <p className="text-xs text-muted-foreground">
+                {compactViews} views • {compactLikes} likes
+              </p>
+            )}
           </Link>
+          <div className="flex-none">
+            <VideoMenu videoId={data.id} onRemove={onRemove} />
+          </div>
         </div>
       </div>
     </div>
