@@ -217,10 +217,17 @@ export const videosRouter = createTRPCRouter({
       const previewKey = removedVideo.previewKey || "";
       utapi.deleteFiles([thumbnailKey, previewKey]);
 
-      if (!removedVideo.muxAssetId) {
+      if (!removedVideo.muxUploadId) {
         throw new TRPCError({ code: "NOT_FOUND" });
       }
-      mux.video.assets.delete(removedVideo.muxAssetId, {});
+
+      const uploadVideo = await mux.video.uploads.retrieve(
+        removedVideo.muxUploadId,
+      );
+
+      if (uploadVideo && uploadVideo.asset_id) {
+        mux.video.assets.delete(uploadVideo.asset_id, {});
+      }
       return removedVideo;
     }),
 
@@ -327,7 +334,7 @@ export const videosRouter = createTRPCRouter({
 
       const playbackId = asset.playback_ids?.[0].id;
 
-      const duration = asset.duration;
+      const duration = asset.duration ? Math.round(asset.duration * 1000) : 0;
 
       const [updateVideo] = await db
         .update(videos)
@@ -340,6 +347,7 @@ export const videosRouter = createTRPCRouter({
         .where(and(eq(videos.id, input.id), eq(videos.userId, userId)))
         .returning();
 
+      console.log(updateVideo);
       return updateVideo;
     }),
 });
