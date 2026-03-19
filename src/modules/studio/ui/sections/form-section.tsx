@@ -165,6 +165,18 @@ export const FormSectionSuspense = ({ videoId }: FormSectionProps) => {
     },
   });
 
+  const revalidate = trpc.videos.revalidate.useMutation({
+    onSuccess: () => {
+      utils.studio.getMany.invalidate();
+      utils.studio.getOne.invalidate();
+      toast.success("Video removed");
+      router.push("/studio");
+    },
+    onError: () => {
+      toast.error("Something went wrong!");
+    },
+  });
+
   const generateTitle = trpc.videos.generateTitle.useMutation({
     onSuccess: () => {
       toast.success("Title generated", { description: "" });
@@ -249,6 +261,12 @@ export const FormSectionSuspense = ({ videoId }: FormSectionProps) => {
                 <AlertDialog>
                   <AlertDialogTrigger asChild>
                     <DropdownMenuContent align="end">
+                      <DropdownMenuItem
+                        onSelect={() => revalidate.mutate({ id: videoId })}
+                      >
+                        <RotateCcwIcon className="size-4 mr-2" />
+                        Revalidate
+                      </DropdownMenuItem>
                       <DropdownMenuItem onSelect={(e) => e.preventDefault()}>
                         <TrashIcon className="size-4 mr-2" />
                         Delete

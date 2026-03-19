@@ -284,4 +284,60 @@ export const videosRouter = createTRPCRouter({
       url: upload.url,
     };
   }),
+
+  // If video webhooks failed somehow, manully re-fetching info and update
+  revalidate: protectedProcedure
+    .input(
+      z.object({
+        id: z.string().uuid(),
+      }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      const { id } = input;
+      const { id: userId } = ctx.user;
+
+      const [existingVideo] = await db
+        .select()
+        .from(videos)
+        .where(and(eq(videos.id, id), eq(videos.userId, userId)));
+
+      if (!existingVideo) {
+        throw new TRPCError({ code: "NOT_FOUND" });
+      }
+
+      if (!existingVideo.muxUploadId) {
+        throw new TRPCError({ code: "BAD_REQUEST" });
+      }
+
+      const uploaded = await mux.video.uploads.retrieve(
+        existingVideo.muxUploadId,
+      );
+
+      if (!uploaded || !uploaded.asset_id) {
+        throw new TRPCError({ code: "BAD_REQUEST" });
+      }
+
+      const asset = await mux.video.assets.retrieve(uploaded.asset_id);
+
+      if (!asset) {
+        throw new TRPCError({ code: "BAD_REQUEST" });
+      }
+
+      const playbackId = asset.playback_ids?.[0].id;
+
+      const duration = asset.duration;
+
+      const [updateVideo] = await db
+        .update(videos)
+        .set({
+          muxStatus: asset.status,
+          muxPlaybackId: playbackId,
+          muxAssetId: asset.id,
+          duration,
+        })
+        .where(and(eq(videos.id, input.id), eq(videos.userId, userId)))
+        .returning();
+
+      return updateVideo;
+    }),
 });
