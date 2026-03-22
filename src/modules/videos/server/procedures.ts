@@ -386,7 +386,7 @@ export const videosRouter = createTRPCRouter({
         cursor: z
           .object({
             id: z.string().uuid(),
-            viewCount: z.number(),
+            viewCounts: z.number(),
           })
           .nullish(),
         limit: z.number().min(1).max(100),
@@ -430,9 +430,9 @@ export const videosRouter = createTRPCRouter({
             eq(videos.visibility, "public"),
             cursor
               ? or(
-                  lt(viewCountSubquery, cursor.viewCount),
+                  lt(viewCountSubquery, cursor.viewCounts),
                   and(
-                    eq(viewCountSubquery, cursor.viewCount),
+                    eq(viewCountSubquery, cursor.viewCounts),
                     lt(videos.id, cursor.id),
                   ),
                 )
@@ -451,7 +451,7 @@ export const videosRouter = createTRPCRouter({
       const nextCursor = hasMore
         ? {
             id: lastItem.id,
-            updatedAt: lastItem.updatedAt,
+            viewCounts: lastItem.viewCounts,
           }
         : null;
       return {
@@ -461,7 +461,7 @@ export const videosRouter = createTRPCRouter({
     }),
 
   // Find the videos published by current login users' subscribed users.
-  getManySubscribed: protectedProcedure
+  getManySubscriptions: protectedProcedure
     .input(
       z.object({
         cursor: z
@@ -487,6 +487,7 @@ export const videosRouter = createTRPCRouter({
       );
 
       const data = await db
+        .with(viewerSubscriptions)
         .select({
           ...getTableColumns(videos),
           user: users,
