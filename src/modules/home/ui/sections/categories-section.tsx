@@ -6,7 +6,7 @@ import { FilterCarousel } from "@/components/filter-carousel";
 import { useRouter } from "next/navigation";
 
 interface CategoriesSectionProps {
-  categoryId: string | null;
+  categoryId?: string;
 }
 
 export const CategoriesSection = ({ categoryId }: CategoriesSectionProps) => {
