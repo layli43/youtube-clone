@@ -1,4 +1,4 @@
 export const DEFAULT_LIMIT = 5;
 
 //TODO: Change to custom .env variable if deploying outside vercel
-export const APP_URL = process.env.VERCEL_URL;
+export const APP_URL = process.env.NEXT_PUBLIC_APP_URL || "";
