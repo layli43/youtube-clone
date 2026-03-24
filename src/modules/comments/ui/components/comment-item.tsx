@@ -59,6 +59,7 @@ export const CommentItem = ({
   const like = trpc.commentsReactions.like.useMutation({
     onSuccess: () => {
       utils.comments.getMany.invalidate({ videoId: comment.videoId });
+      utils.playlists.getLiked.invalidate();
     },
     onError: (error) => {
       toast.error("Something went wrong!");

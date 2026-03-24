@@ -5,6 +5,101 @@ import { and, desc, eq, getTableColumns, lt, or } from "drizzle-orm";
 import { z } from "zod";
 
 export const playlistsRouter = createTRPCRouter({
+  getLiked: protectedProcedure
+    .input(
+      z.object({
+        cursor: z
+          .object({
+            id: z.string().uuid(),
+            likedAt: z.date(),
+          })
+          .nullish(),
+        limit: z.number().min(1).max(100),
+      }),
+    )
+    .query(async ({ input, ctx }) => {
+      const { id: userId } = ctx.user;
+      const { cursor, limit } = input;
+      const viewerVideoReactions = db.$with("viewer_video_reactions").as(
+        db
+          .select({
+            videoId: videoReactions.videoId,
+            likedAt: videoReactions.createdAt,
+          })
+          .from(videoReactions)
+          .where(
+            and(
+              eq(videoReactions.userId, userId),
+              eq(videoReactions.type, "like"),
+            ),
+          ),
+      );
+
+      const data = await db
+        .with(viewerVideoReactions)
+        .select({
+          ...getTableColumns(videos),
+          user: users,
+          likedAt: viewerVideoReactions.likedAt,
+          //View counts
+          viewCounts: db.$count(videoViews, eq(videoViews.videoId, videos.id)),
+          //Like Counts
+          likeCounts: db.$count(
+            videoReactions,
+            and(
+              eq(videoReactions.videoId, videos.id),
+              eq(videoReactions.type, "like"),
+            ),
+          ),
+          //Dislike counts
+          dislikeCounts: db.$count(
+            videoReactions,
+            and(
+              eq(videoReactions.videoId, videos.id),
+              eq(videoReactions.type, "dislike"),
+            ),
+          ),
+        })
+        .from(videos)
+        .innerJoin(users, eq(videos.userId, users.id))
+        .innerJoin(
+          viewerVideoReactions,
+          eq(videos.id, viewerVideoReactions.videoId),
+        )
+        .where(
+          and(
+            eq(videos.visibility, "public"),
+            cursor
+              ? or(
+                  lt(viewerVideoReactions.likedAt, cursor.likedAt),
+                  and(
+                    eq(viewerVideoReactions.likedAt, cursor.likedAt),
+                    lt(videos.id, cursor.id),
+                  ),
+                )
+              : undefined,
+          ),
+        )
+        .orderBy(desc(viewerVideoReactions.likedAt), desc(videos.id))
+        // Check if the data length exceed the limit
+        .limit(limit + 1);
+
+      const hasMore = data.length > limit;
+      const items = hasMore ? data.slice(0, -1) : data;
+
+      // Set the nextCursor if there is more data to fetch
+      const lastItem = items[items.length - 1];
+      const nextCursor = hasMore
+        ? {
+            id: lastItem.id,
+            likedAt: lastItem.likedAt,
+          }
+        : null;
+      return {
+        items,
+        nextCursor,
+      };
+    }),
   getHistory: protectedProcedure
     .input(
       z.object({
