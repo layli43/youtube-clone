@@ -10,6 +10,7 @@ import {
 import { createTRPCRouter, protectedProcedure } from "@/trpc/init";
 import { TRPCError } from "@trpc/server";
 import { and, desc, eq, getTableColumns, lt, or, sql } from "drizzle-orm";
+import { Input } from "postcss";
 import { z } from "zod";
 
 export const playlistsRouter = createTRPCRouter({
@@ -180,6 +181,156 @@ export const playlistsRouter = createTRPCRouter({
           ),
         )
         .orderBy(desc(playlists.updatedAt), desc(playlists.id))
+        // Check if the data length exceed the limit
+        .limit(limit + 1);
+
+      const hasMore = data.length > limit;
+      const items = hasMore ? data.slice(0, -1) : data;
+
+      // Set the nextCursor if there is more data to fetch
+      const lastItem = items[items.length - 1];
+      const nextCursor = hasMore
+        ? {
+            id: lastItem.id,
+            updatedAt: lastItem.updatedAt,
+          }
+        : null;
+      return {
+        items,
+        nextCursor,
+      };
+    }),
+
+  remove: protectedProcedure
+    .input(z.object({ id: z.string().uuid() }))
+    .mutation(async ({ input, ctx }) => {
+      const { id } = input;
+      const { id: userId } = ctx.user;
+
+      const [existingPlaylist] = await db
+        .select()
+        .from(playlists)
+        .where(and(eq(playlists.id, id), eq(playlists.userId, userId)));
+
+      const [deletedPlaylist] = await db
+        .delete(playlists)
+        .where(and(eq(playlists.id, id), eq(playlists.userId, userId)))
+        .returning();
+
+      if (!deletedPlaylist) {
+        throw new TRPCError({ code: "NOT_FOUND" });
+      }
+
+      return deletedPlaylist;
+    }),
+
+  getOne: protectedProcedure
+    .input(
+      z.object({
+        id: z.string().uuid(),
+      }),
+    )
+    .query(async ({ input, ctx }) => {
+      const { id } = input;
+      const { id: userId } = ctx.user;
+
+      const [existingPlaylist] = await db
+        .select()
+        .from(playlists)
+        .where(and(eq(playlists.id, id), eq(playlists.userId, userId)));
+
+      if (!existingPlaylist) {
+        throw new TRPCError({ code: "NOT_FOUND" });
+      }
+
+      return existingPlaylist;
+    }),
+
+  /**
+   * Get the video info in the current playlist
+   */
+  getVideos: protectedProcedure
+    .input(
+      z.object({
+        playlistId: z.string().uuid(),
+        cursor: z
+          .object({
+            id: z.string().uuid(),
+            updatedAt: z.date(),
+          })
+          .nullish(),
+        limit: z.number().min(1).max(100),
+      }),
+    )
+    .query(async ({ input, ctx }) => {
+      const { id: userId } = ctx.user;
+      const { playlistId, cursor, limit } = input;
+      //Make sure this is the playlist of the current user
+      const [exitingPlaylist] = await db
+        .select()
+        .from(playlists)
+        .where(and(eq(playlists.id, playlistId), eq(playlists.userId, userId)));
+
+      if (!exitingPlaylist) {
+        throw new TRPCError({ code: "NOT_FOUND" });
+      }
+
+      const playlistVideosView = db.$with("playlist_videos_view").as(
+        db
+          .select({
+            videoId: playlistVideos.videoId,
+            updatedAt: playlistVideos.updatedAt,
+          })
+          .from(playlistVideos)
+          .where(eq(playlistVideos.playlistId, playlistId)),
+      );
+
+      const data = await db
+        .with(playlistVideosView)
+        .select({
+          ...getTableColumns(videos),
+          user: users,
+          updatedAt: playlistVideosView.updatedAt,
+          //View counts
+          viewCounts: db.$count(videoViews, eq(videoViews.videoId, videos.id)),
+          //Like Counts
+          likeCounts: db.$count(
+            videoReactions,
+            and(
+              eq(videoReactions.videoId, videos.id),
+              eq(videoReactions.type, "like"),
+            ),
+          ),
+          //Dislike counts
+          dislikeCounts: db.$count(
+            videoReactions,
+            and(
+              eq(videoReactions.videoId, videos.id),
+              eq(videoReactions.type, "dislike"),
+            ),
+          ),
+        })
+        .from(videos)
+        .innerJoin(users, eq(videos.userId, users.id))
+        .innerJoin(
+          playlistVideosView,
+          eq(videos.id, playlistVideosView.videoId),
+        )
+        .where(
+          and(
+            eq(videos.visibility, "public"),
+            cursor
+              ? or(
+                  lt(playlistVideosView.updatedAt, cursor.updatedAt),
+                  and(
+                    eq(playlistVideosView.updatedAt, cursor.updatedAt),
+                    lt(videos.id, cursor.id),
+                  ),
+                )
+              : undefined,
+          ),
+        )
+        .orderBy(desc(playlistVideosView.updatedAt), desc(videos.id))
         // Check if the data length exceed the limit
         .limit(limit + 1);
 
