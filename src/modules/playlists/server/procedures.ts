@@ -10,7 +10,6 @@ import {
 import { createTRPCRouter, protectedProcedure } from "@/trpc/init";
 import { TRPCError } from "@trpc/server";
 import { and, desc, eq, getTableColumns, lt, or, sql } from "drizzle-orm";
-import { Input } from "postcss";
 import { z } from "zod";
 
 export const playlistsRouter = createTRPCRouter({
@@ -211,6 +210,10 @@ export const playlistsRouter = createTRPCRouter({
         .select()
         .from(playlists)
         .where(and(eq(playlists.id, id), eq(playlists.userId, userId)));
+
+      if (!existingPlaylist) {
+        throw new TRPCError({ code: "NOT_FOUND" });
+      }
 
       const [deletedPlaylist] = await db
         .delete(playlists)
