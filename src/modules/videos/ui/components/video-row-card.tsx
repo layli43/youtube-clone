@@ -92,7 +92,7 @@ export const VideoRowCard = ({
     return Intl.NumberFormat("en", {
       notation: "compact",
     }).format(data.viewCounts);
-  }, [data.likeCounts]);
+  }, [data.viewCounts]);
 
   const compactLikes = useMemo(() => {
     return Intl.NumberFormat("en", {

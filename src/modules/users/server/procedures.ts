@@ -5,8 +5,7 @@ import { TRPCError } from "@trpc/server";
 import { getTableColumns, inArray, isNotNull, eq } from "drizzle-orm";
 import z from "zod";
 
-export const userRouter = createTRPCRouter({
-  //TODO: Fetch the clicked user subscripbers and subscriber count and video count
+export const usersRouter = createTRPCRouter({
   getOne: baseProcedure
     .input(
       z.object({
