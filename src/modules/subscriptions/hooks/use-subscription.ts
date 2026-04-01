@@ -23,6 +23,7 @@ export const useSubscription = ({
       utils.videos.getManySubscriptions.invalidate();
       if (fromVideoId) {
         utils.videos.getOne.invalidate({ id: fromVideoId });
+        utils.users.getOne.invalidate({ id: userId });
       }
     },
     onError: (error) => {
@@ -39,7 +40,9 @@ export const useSubscription = ({
       toast.success("Unsubscribed");
       utils.videos.getManySubscriptions.invalidate();
       if (fromVideoId) {
+        // Validate user so the user profile info can change immediately
         utils.videos.getOne.invalidate({ id: fromVideoId });
+        utils.users.getOne.invalidate({ id: userId });
       }
     },
     onError: (error) => {
