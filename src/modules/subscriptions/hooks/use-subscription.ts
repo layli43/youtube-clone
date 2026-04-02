@@ -21,9 +21,10 @@ export const useSubscription = ({
       toast.success("Subscribed");
       // Don't need to refresh
       utils.videos.getManySubscriptions.invalidate();
+      utils.subscriptions.getMany.invalidate();
+      utils.users.getOne.invalidate({ id: userId });
       if (fromVideoId) {
         utils.videos.getOne.invalidate({ id: fromVideoId });
-        utils.users.getOne.invalidate({ id: userId });
       }
     },
     onError: (error) => {
@@ -38,11 +39,12 @@ export const useSubscription = ({
   const unsubscribe = trpc.subscriptions.delete.useMutation({
     onSuccess: () => {
       toast.success("Unsubscribed");
+      utils.subscriptions.getMany.invalidate();
       utils.videos.getManySubscriptions.invalidate();
+      utils.users.getOne.invalidate({ id: userId });
       if (fromVideoId) {
         // Validate user so the user profile info can change immediately
         utils.videos.getOne.invalidate({ id: fromVideoId });
-        utils.users.getOne.invalidate({ id: userId });
       }
     },
     onError: (error) => {
